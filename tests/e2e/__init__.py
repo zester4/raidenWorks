@@ -1,0 +1,1 @@
+# Initialize the e2e tests module

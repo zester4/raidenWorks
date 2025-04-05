@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "raiden-agent"
+version = "0.1.0"
+description = "Autonomous web automation agent"
+readme = "README.md"
+requires-python = ">=3.9" # Playwright and modern type hints benefit from newer versions
+license = { text = "MIT" } # Or choose another license
+authors = [
+    { name = "Your Name / Team", email = "your.email@example.com" }
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Internet :: WWW/HTTP :: Browsers",
+]
+# Define core dependencies here. Add others as needed.
+# Use specific versions for production stability. Find latest compatible versions.
+dependencies = [
+    "fastapi ~= 0.111.0",
+    "uvicorn[standard] ~= 0.29.0", # For running FastAPI
+    "pydantic ~= 2.7.1",
+    "pydantic-settings ~= 2.2.1", # For loading config from .env
+    "redis[hiredis] ~= 5.0.4",    # For session cache
+    "playwright ~= 1.44.0",       # For browser automation
+    "google-cloud-aiplatform ~= 1.55.0", # For Vertex AI / Gemini
+    "SQLAlchemy[asyncio] ~= 2.0.30", # For PostgreSQL ORM
+    "asyncpg ~= 0.29.0",          # Async PostgreSQL driver for SQLAlchemy
+    "python-dotenv ~= 1.0.1",
+    "structlog ~= 24.1.0",      # For structured logging
+    # Add security store deps e.g. 'hvac' for Vault
+]
+
+[project.urls]
+"Homepage" = "https://github.com/your-repo/raiden-agent" # Update later
+"Bug Tracker" = "https://github.com/your-repo/raiden-agent/issues" # Update later
+
+[project.optional-dependencies]
+dev = [
+    "pytest ~= 8.1.1",
+    "pytest-asyncio ~= 0.23.6",
+    "pytest-cov ~= 5.0.0",
+    "httpx ~= 0.27.0", # For testing FastAPI endpoints
+    "mypy ~= 1.9.0",   # Static type checking
+    "ruff ~= 0.4.2",   # Linter/Formatter
+    "pre-commit ~= 3.7.0", # Git hooks
+    # Add dependencies for docs generation e.g., 'mkdocs' or 'sphinx'
+]
+
+[tool.setuptools.packages.find]
+where = ["."] # Look for packages in the root directory
+include = ["raiden*"] # Include the 'raiden' package and any subpackages
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "C4", "B"] # Example rules: pyflakes, pycodestyle, import sorting, etc.
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true # Can make this stricter later
+# Add strict flags progressively: disallow_untyped_defs = true etc.

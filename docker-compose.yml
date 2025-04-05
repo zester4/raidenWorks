@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-raiden_db}
+      POSTGRES_USER: ${POSTGRES_USER:-raiden_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-raiden_password} # Ensure this matches .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  raiden_api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Use target 'builder' if you need dev tools/deps locally, otherwise use default (final)
+      # target: builder
+    env_file:
+      - .env # Load environment variables from .env file
+    environment:
+      # Override DB/Redis hosts to use service names within Docker network
+      REDIS_HOST: redis
+      POSTGRES_HOST: postgres
+      # Ensure PLAYWRIGHT_BROWSERS_PATH is correctly set if not using default in Dockerfile
+      # PLAYWRIGHT_BROWSERS_PATH: /home/raiden/.cache/ms-playwright
+    ports:
+      - "8000:8000" # Map host port 8000 to container port 8000
+    volumes:
+      # Mount local code for live reloading during development
+      - ./raiden:/app/raiden
+      # Persist recordings outside the container if needed locally
+      - ./local_recordings:/app/recordings
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+    # Add healthcheck if needed
+    # command: uvicorn raiden.api.main:app --host 0.0.0.0 --port 8000 --reload # Enable reload for dev
+
+volumes:
+  redis_data:
+  postgres_data:
+  local_recordings: # Define the named volume for recordings
