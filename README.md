@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Raiden Agent
 
 An autonomous web automation agent powered by LLMs.
@@ -128,3 +129,6 @@ raiden-agent/                     # Root directory of the project repository
 ======================================
 
 docker-compose up -d redis postgres
+=======
+# raidenWorks
+>>>>>>> 0a43fce96be28f75dd5624bf2b4a3f8c240bcbba
