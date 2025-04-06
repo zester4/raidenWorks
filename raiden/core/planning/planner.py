@@ -1,41 +1,5 @@
-import jsonimport logging
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# ...existing code...        return prompt_parts            prompt_parts.append(create_image_part(screenshot_base64))        if screenshot_base64:        prompt_parts = [Part.from_text(formatted_prompt_text)]        )            vision_context_section=vision_section  # <-- Added            dom_context_section=dom_section,       # <-- Added            user_prompt=user_prompt,            plan_schema=json.dumps(PLAN_JSON_SCHEMA_DESCRIPTION, indent=2),        formatted_prompt_text = PLANNING_SYSTEM_PROMPT_TEMPLATE.format(        # Format the main system prompt template            # ... (add image part) ...            vision_section = VISION_CONTEXT_SECTION_TEMPLATE        if screenshot_base64:        vision_section = ""  # Initialized but not passed to .format()            dom_section = DOM_CONTEXT_SECTION_TEMPLATE.format(dom_snapshot=simplified_dom)            # ... (DOM simplification logic) ...        if dom_snapshot:        dom_section = ""  # Initialized but not passed to .format()        # Prepare context sections    ) -> List[Part]:        self, user_prompt: str, dom_snapshot: Optional[str] = None, screenshot_base64: Optional[str] = None    def _construct_prompt(    # ...existing code...class Planner:# ...existing code...from raiden.core.planning.llm_client import Part, create_image_partfrom typing import Optional, Listimport json
+import json
+import logging
 from typing import Optional, List, Dict, Any
 from pydantic import ValidationError
 from vertexai.generative_models import Part
@@ -99,13 +63,24 @@ class Planner:
     def _construct_prompt(
         self, user_prompt: str, dom_snapshot: Optional[str] = None, screenshot_base64: Optional[str] = None
     ) -> List[Part]:
-        prompt_parts = []
-        formatted_prompt = PLANNING_SYSTEM_PROMPT_TEMPLATE.format(
-            user_prompt=user_prompt,
-            dom_snapshot=dom_snapshot or "None",
+        # Prepare context sections
+        dom_section = ""
+        if dom_snapshot:
+            dom_section = f"**DOM Snapshot:**\n{dom_snapshot}"
+
+        vision_section = ""
+        if screenshot_base64:
+            vision_section = "**Screenshot Provided**"
+
+        # Format the main system prompt template
+        formatted_prompt_text = PLANNING_SYSTEM_PROMPT_TEMPLATE.format(
             plan_schema=json.dumps(PLAN_JSON_SCHEMA_DESCRIPTION, indent=2),
+            user_prompt=user_prompt,
+            dom_context_section=dom_section,
+            vision_context_section=vision_section
         )
-        prompt_parts.append(Part.from_text(formatted_prompt))
+
+        prompt_parts = [Part.from_text(formatted_prompt_text)]
         if screenshot_base64:
             prompt_parts.append(create_image_part(screenshot_base64))
         return prompt_parts
