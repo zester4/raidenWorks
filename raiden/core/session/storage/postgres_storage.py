@@ -28,7 +28,8 @@ class PostgresSessionStorage(BaseSessionStorage):
             "session_id": session_state.session_id,
             "status": session_state.status,
             "user_prompt": session_state.user_prompt,
-            "plan": session_state.plan.model_dump() if session_state.plan else None,
+            # Use model_dump(mode='json') to ensure proper serialization of complex types like HttpUrl
+            "plan": session_state.plan.model_dump(mode='json') if session_state.plan else None,
             "session_variables": session_state.session_variables,
             "final_result": session_state.final_result,
             "session_config": session_state.session_config,

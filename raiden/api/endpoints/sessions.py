@@ -132,7 +132,23 @@ async def get_session_status(
     session_state = await manager.get_session(session_id)
     if not session_state:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal state inconsistency.")
-    return SessionStatusResponse.model_validate(session_state)
+    
+    # Convert SessionState to a dictionary and create SessionStatusResponse
+    session_dict = {
+        "session_id": session_state.session_id,
+        "status": session_state.status,
+        "user_prompt": session_state.user_prompt,
+        "plan": session_state.plan.model_dump() if session_state.plan else None,
+        "current_step_index": session_state.current_step_index,
+        "session_variables": session_state.session_variables,
+        "last_error": session_state.last_error,
+        "ask_user_prompt": getattr(session_state, 'ask_user_prompt', None),
+        "final_result": session_state.final_result,
+        "created_at": session_state.created_at,
+        "updated_at": session_state.updated_at,
+        "session_config": session_state.session_config
+    }
+    return SessionStatusResponse(**session_dict)
 
 @router.post(
     "/{session_id}/respond",

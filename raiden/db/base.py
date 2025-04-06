@@ -45,39 +45,38 @@ async def initialize_database():
              except Exception:
                   dsn_string_for_log = "[Error masking DSN]"
 
-
         logger.info(f"Initializing PostgreSQL async engine for DSN: {dsn_string_for_log}")
         if not settings.postgres_dsn:
              raise ValueError("POSTGRES_DSN is not configured in settings.")
 
         try:
+            # Create engine without any SSL parameters in the URL
             _async_engine = create_async_engine(
-                str(settings.postgres_dsn), # Pass the validated DSN string
-                pool_pre_ping=True, # Checks connections before use, good for serverless/long idle
-                pool_recycle=1800, # Recycle connections every 30 mins (adjust as needed for Neon/idle timeouts)
-                # Consider pool size based on expected concurrency and Neon limits (adjust defaults if needed)
-                pool_size=10, # Default: 5 + overflow
-                max_overflow=5, # Default: 10
-                echo=settings.log_level == "DEBUG", # Log SQL statements only in DEBUG mode
-                # Use connect_args for driver-specific options if needed
-                # connect_args={"server_settings": {"application_name": "raiden_agent"}} # Example: Set app name in PG logs
+                str(settings.postgres_dsn).replace("?sslmode=require", ""),
+                pool_pre_ping=True,
+                pool_recycle=1800,
+                pool_size=10,
+                max_overflow=5,
+                echo=settings.log_level == "DEBUG",
+                # Add SSL config in connect_args
+                connect_args={
+                    "ssl": True,
+                }
             )
             _async_session_local = async_sessionmaker(
                 bind=_async_engine,
                 class_=AsyncSession,
-                expire_on_commit=False # Recommended for async and FastAPI dependencies
+                expire_on_commit=False
             )
             logger.info("PostgreSQL async engine and session maker initialized.")
 
-            # Optional: Create tables defined in Base subclasses if they don't exist
-            # WARNING: In production, use a proper migration tool like Alembic instead of create_all.
-            # This is included for ease of getting started locally.
-            logger.warning("Attempting to create database tables via create_all (for local dev only - use migrations in production!)")
-            async with _async_engine.begin() as conn:
-                logger.info("Running Base.metadata.create_all...")
-                # await conn.run_sync(Base.metadata.drop_all) # Use for resetting during dev
-                await conn.run_sync(Base.metadata.create_all)
-                logger.info("Base.metadata.create_all execution complete.")
+            # Create tables in development mode only
+            if settings.is_development_mode:
+                logger.warning("Attempting to create database tables via create_all (for local dev only - use migrations in production!)")
+                async with _async_engine.begin() as conn:
+                    logger.info("Running Base.metadata.create_all...")
+                    await conn.run_sync(Base.metadata.create_all)
+                    logger.info("Base.metadata.create_all execution complete.")
 
         except SQLAlchemyError as e:
             logger.error(f"Failed to initialize PostgreSQL engine or create tables: {e}", exc_info=True)

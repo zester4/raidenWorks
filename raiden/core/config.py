@@ -10,11 +10,19 @@ class Settings(BaseSettings):
     """
     Centralized configuration management for the Raiden application.
     """
+    # Add development mode flag
+    is_development_mode: bool = Field(
+        default=False, 
+        validation_alias="DEVELOPMENT_MODE",
+        description="Enable development mode (disables certain security checks)"
+    )
+
     # --- Application Core Settings ---
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
     allowed_origins: list[str] = Field(default=["*"], validation_alias="ALLOWED_ORIGINS")
 
     # --- Gemini API Configuration ---
+    gemini_api_key: SecretStr = Field(..., validation_alias="GEMINI_API_KEY")
     gemini_project_id: str = Field(validation_alias="GEMINI_PROJECT_ID")
     gemini_location: str = Field(validation_alias="GEMINI_LOCATION")
     gemini_model_name: str = Field(default="gemini-2.5-pro-preview-03-25", validation_alias="GEMINI_MODEL_NAME")
@@ -46,6 +54,21 @@ class Settings(BaseSettings):
 
         if not self.computed_redis_dsn:
             raise ValueError("Failed to determine a valid Redis DSN.")
+        return self
+
+    @model_validator(mode='after')
+    def validate_security_settings(self) -> 'Settings':
+        """Validate security-critical settings."""
+        if "*" in self.allowed_origins and not self.is_development_mode:
+            logger.warning("Wildcard CORS origin (*) detected in production mode")
+            # In production, we'll just warn rather than error, as the setting might be intentional
+            
+        if not self.postgres_dsn.scheme.endswith("+asyncpg"):
+            raise ValueError("Must use asyncpg driver for PostgreSQL")
+            
+        if not str(self.computed_redis_dsn).startswith("rediss://"):
+            logger.warning("Redis connection is not using SSL (rediss://)")
+            
         return self
 
     # --- PostgreSQL Configuration ---

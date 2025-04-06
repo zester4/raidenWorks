@@ -44,7 +44,9 @@ class TaskOrchestrator:
             (action_status: ActionStatus, result_data: Optional[Dict[str, Any]])
             result_data might contain extracted text, error details, or user prompts.
         """
-        logger.info(f"Session {session_id}: Executing Step {step.step_id}: {step.action_type} - Reason: {step.human_readable_reasoning or 'N/A'}")
+        # Use getattr for safe access to the optional attribute
+        reason = getattr(step, 'human_readable_reasoning', None) or 'N/A'
+        logger.info(f"Session {session_id}: Executing Step {step.step_id}: {step.action_type} - Reason: {reason}")
 
         action_method_name = f"execute_{step.action_type}"
         if not hasattr(self.bcl, action_method_name):

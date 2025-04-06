@@ -62,7 +62,7 @@ class Planner:
 
     def _construct_prompt(
         self, user_prompt: str, dom_snapshot: Optional[str] = None, screenshot_base64: Optional[str] = None
-    ) -> List[Part]:
+    ) -> List[dict]:
         # Prepare context sections
         dom_section = ""
         if dom_snapshot:
@@ -80,9 +80,10 @@ class Planner:
             vision_context_section=vision_section
         )
 
-        prompt_parts = [Part.from_text(formatted_prompt_text)]
+        # Create parts in the new format
+        prompt_parts = [{"text": formatted_prompt_text}]
         if screenshot_base64:
-            prompt_parts.append(create_image_part(screenshot_base64))
+            prompt_parts.append({"image": screenshot_base64})
         return prompt_parts
 
     async def generate_plan(
