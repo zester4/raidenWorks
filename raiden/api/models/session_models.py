@@ -54,3 +54,13 @@ class SessionListResponse(BaseModel):
     """Response body for listing sessions."""
     sessions: List[Dict[str, Any]]
     total: int
+
+class SessionConfigRequest(BaseModel):
+    """Configuration specific to a session request."""
+    headless: Optional[bool] = Field(default=None, description="Override default headless mode (true/false).")
+    use_vision: Optional[bool] = Field(default=False, description="Enable vision capabilities for this session.")
+    record_video: Optional[bool] = Field(default=None, description="Override default video recording setting.")
+    auth_context: Optional[Dict[str, Any]] = Field(default=None, description="Context for retrieving authentication details (e.g., user ID, credential keys).")
+
+    class Config:
+        extra = 'forbid'  # Ensure no extra fields are allowed

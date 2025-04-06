@@ -136,4 +136,5 @@ greenlet
 asyncpg
 python-dotenv
 structlog
+gcloud
 upstash-redis

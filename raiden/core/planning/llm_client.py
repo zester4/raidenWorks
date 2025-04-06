@@ -3,7 +3,7 @@ import base64
 from typing import Optional, List, Tuple
 
 import vertexai
-from vertexai.generative_models import GenerativeModel, Part, GenerationConfig, SafetySetting
+from vertexai.generative_models import GenerativeModel, Part, Content, GenerationConfig, SafetySetting
 from raiden.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class LLMClient:
         self.model_name = model_name or settings.gemini_model_name
         self.generation_config = GenerationConfig(
             temperature=0.2,
-            max_output_tokens=4096,
+            max_output_tokens=8192,
         )
         self.safety_settings = [
             SafetySetting(category=cat, threshold=thresh)
@@ -50,7 +50,7 @@ class LLMClient:
     async def generate_content_async(
         self, prompt_parts: List[Part], request_json_output: bool = True
     ) -> Tuple[Optional[str], Optional[str]]:
-        contents = [Part(role="user", parts=prompt_parts)]
+        contents = [Content(role="user", parts=prompt_parts)]
         gen_config = self.generation_config.to_dict()
         gen_config["response_mime_type"] = "application/json" if request_json_output else "text/plain"
         try:

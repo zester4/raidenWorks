@@ -18,6 +18,7 @@ from raiden.api.dependencies import (
     get_session_or_404,
 )
 from raiden.core.constants import SESSION_STATUS_PAUSED_ASK_USER, SESSION_STATUS_FAILED
+from raiden.core.session.manager import SessionManager  # <-- Add this import if not already present
 
 logger = logging.getLogger(__name__)
 
@@ -31,21 +32,21 @@ router = APIRouter(
     },
 )
 
-async def run_planning_and_execution(session_id: str, planner: PlannerDep, orchestrator: OrchestratorDep, manager: SessionManagerDep):
+async def run_planning_and_execution(session_id: str, planner: PlannerDep, orchestrator: OrchestratorDep, session_manager: SessionManager):
     logger.info(f"Background Task: Starting planning for session {session_id}.")
     try:
-        session_state = await manager.get_session(session_id)
+        session_state = await session_manager.get_session(session_id)
         if not session_state:
             logger.error(f"Background Task: Session {session_id} not found.")
             return
         plan = await planner.generate_plan(user_prompt=session_state.user_prompt)
         updates = {"plan": plan, "status": "RUNNING"}
-        session_state = await manager.update_session(session_id, updates)
+        session_state = await session_manager.update_session(session_id, updates)
         if session_state:
             await orchestrator.run_session(session_id)
     except Exception as e:
         logger.error(f"Background Task: Error during planning or execution for session {session_id}: {e}", exc_info=True)
-        await manager.update_session(session_id, {"status": SESSION_STATUS_FAILED, "last_error": str(e)})
+        await session_manager.update_session(session_id, {"status": SESSION_STATUS_FAILED, "last_error": str(e)})
 
 @router.post(
     "/",
@@ -169,3 +170,5 @@ async def terminate_session(
     await bcl.close_session_context(session_id)
     await manager.delete_session(session_id)
     return None
+
+

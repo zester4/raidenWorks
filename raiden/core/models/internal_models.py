@@ -54,6 +54,13 @@ class SessionState(BaseModel):
     session_variables: Dict[str, Any] = Field(default_factory=dict, description="Data extracted or generated during the session.")
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Timestamp when the session was created (UTC).")
     updated_at: datetime = Field(default_factory=datetime.utcnow, description="Timestamp when the session state was last updated (UTC).")
+    session_config: Optional[Dict[str, Any]] = Field(
+        default=None, 
+        description="Snapshot of session-specific configuration (e.g., headless, use_vision)."
+    )
+    last_error: Optional[str] = Field(default=None, description="Details of the last error encountered, if status is FAILED.")
+    ask_user_prompt: Optional[str] = Field(default=None, description="The question currently waiting for user input, if status is PAUSED_ASK_USER.")
+    final_result: Optional[Any] = Field(default=None, description="The final result or output of the completed session.")
 
     class Config:
         extra = 'forbid'
