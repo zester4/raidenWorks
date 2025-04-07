@@ -9,7 +9,8 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Pin to Ubuntu 22.04 (Jammy) for better compatibility with Playwright's dependencies
+    runs-on: ubuntu-22.04
     services:
       postgres:
         image: postgres:15
@@ -19,12 +20,14 @@ jobs:
           POSTGRES_DB: raiden_test
         ports:
           - 5432:5432
+        # Added healthcheck options for service stability
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-      
+
       redis:
         image: redis:7
         ports:
           - 6379:6379
+        # Added healthcheck options for service stability
         options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
 
     strategy:
@@ -33,28 +36,33 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-    
+        cache: 'pip' # Enable pip caching
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        # Install project with 'dev' extras (which should include playwright)
         pip install -e ".[dev]"
-        playwright install
-        playwright install-deps
-    
+        # Explicitly install browsers and their system dependencies
+        # This step should now work reliably on ubuntu-22.04
+        playwright install --with-deps
+        # Note: The above command combines browser install and dependency install.
+        # Removed separate 'playwright install' and 'playwright install-deps'
+
     - name: Run linting
       run: |
         ruff check .
         ruff format --check .
         mypy raiden
-    
+
     - name: Run tests
       env:
+        # Ensure services are accessible via localhost due to port mapping
         POSTGRES_DSN: postgresql+asyncpg://raiden_test:raiden_test@localhost:5432/raiden_test
         REDIS_DSN: redis://localhost:6379/0
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -62,37 +70,42 @@ jobs:
         GEMINI_LOCATION: us-central1
       run: |
         pytest --cov=raiden --cov-report=xml
-    
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
-        file: ./coverage.xml
+        token: ${{ secrets.CODECOV_TOKEN }} # Recommended practice: use token
+        files: ./coverage.xml # Ensure path is correct if coverage report changes name/location
         flags: unittests
-        name: Python ${{ matrix.python-version }}
+        name: Python-${{ matrix.python-version }} # Consistent naming
+      # Continue even if Codecov upload fails
+      continue-on-error: true
 
   publish:
     needs: test
-    runs-on: ubuntu-latest
+    # Also pin publish job runner for consistency and avoiding potential build tool issues
+    runs-on: ubuntu-22.04
+    # Only run on tagged pushes
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
-    
+        python-version: '3.12' # Use a specific modern version for building
+
     - name: Install build tools
       run: |
         python -m pip install --upgrade pip
         pip install build twine
-    
+
     - name: Build package
       run: python -m build
-    
+
     - name: Publish to PyPI
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-      run: twine upload dist/*
+      run: twine upload dist/* --skip-existing # Add --skip-existing for robustness

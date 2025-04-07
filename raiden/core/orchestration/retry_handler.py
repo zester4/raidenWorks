@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 class RetryHandler:
     """Handles retries for browser actions with exponential backoff."""
     
-    def __init__(self, max_retries: int = 3, initial_delay: float = 1.0, max_delay: float = 10.0, backoff_factor: float = 2.0):
+    def __init__(self, max_retries: int = 5, initial_delay: float = 1.0, max_delay: float = 15.0, backoff_factor: float = 2.0):
         self.max_retries = max_retries
         self.initial_delay = initial_delay
         self.max_delay = max_delay

@@ -36,7 +36,7 @@ class BrowserControlLayer:
             try:
                 self._playwright = await async_playwright().start()
                 self._browser = await self._playwright.chromium.launch(
-                    headless=settings.browser_default_headless,
+                    headless=False,  # Ensure the browser is always visible
                     args=["--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage"],
                 )
                 logger.info("Playwright initialized and browser launched.")
@@ -156,6 +156,9 @@ class BrowserControlLayer:
             return await self._retry_handler.execute_with_retry('wait_for_selector', wait_action)
         except (ActionExecutionError, ActionTimeoutError) as e:
             logger.error(f"Failed to wait for selector after all retries: {e}")
+            async with self.get_page_for_session(session_id) as page:
+                page_html = await page.content()
+                logger.debug(f"Page HTML at failure: {page_html}")
             raise
 
     async def execute_wait_for_load_state(self, session_id: str, step: Any, **kwargs) -> Tuple[ActionStatus, Dict[str, Any]]:

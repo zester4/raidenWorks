@@ -1,6 +1,8 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.5.0
+  rev: v4.6.0 # Updated rev
   hooks:
     - id: trailing-whitespace
     - id: end-of-file-fixer
@@ -10,19 +12,24 @@ repos:
     - id: debug-statements
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.4.2
+  # Ruff version matches the one in pyproject.toml or is compatible
+  rev: v0.5.5 # Updated rev, check compatibility with your code if needed
   hooks:
     - id: ruff
-      args: [--fix]
+      args: [--fix, --exit-non-zero-on-fix] # Add --exit-non-zero-on-fix for CI
     - id: ruff-format
 
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: v1.9.0
+  rev: v1.11.0 # Updated rev
   hooks:
     - id: mypy
+      # Ensure additional_dependencies are compatible with the main mypy version
+      # and your project dependencies
       additional_dependencies:
-        - types-redis
-        - types-requests
+        - types-redis>=4.6.0.20240106 # Example of potentially needing version sync
+        - types-requests>=2.31.0.20240106
         - types-setuptools
-        - pydantic
-      exclude: ^(docs/|tests/)
+        - pydantic>=2.0 # Ensure compatible with project's pydantic
+      exclude: ^(docs/|tests/) # Exclude patterns remain
+      # Consider adding args if needed, e.g.:
+      # args: ["--config-file=mypy.ini"]
