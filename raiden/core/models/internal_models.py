@@ -22,6 +22,8 @@ class ActionStep(BaseModel):
     target_url: Optional[HttpUrl] = Field(default=None, description="URL for navigation actions.")
     text_to_type: Optional[str] = Field(default=None, description="Text to be typed into an element.")
     prompt_to_user: Optional[str] = Field(default=None, description="Prompt text for 'ask_user' action.")
+    extraction_variable: Optional[str] = Field(default=None, description="Variable name to store extracted text.")
+    human_readable_reasoning: Optional[str] = Field(default=None, description="Human-readable explanation of the step's purpose.")
 
     @validator('target_url', pre=True, always=True)
     def check_target_url_for_navigate(cls, v, values):
@@ -33,6 +35,12 @@ class ActionStep(BaseModel):
     def check_text_for_type(cls, v, values):
         if values.get('action_type') == ACTION_TYPE_TYPE and v is None:
             raise ValueError("text_to_type is required for 'type' action_type")
+        return v
+
+    @validator('extraction_variable', pre=True, always=True)
+    def check_extraction_variable_for_extract(cls, v, values):
+        if values.get('action_type') == ACTION_TYPE_EXTRACT_TEXT and v is None:
+            raise ValueError("extraction_variable is required for 'extract_text' action_type")
         return v
 
 class Plan(BaseModel):

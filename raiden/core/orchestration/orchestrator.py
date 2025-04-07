@@ -31,46 +31,57 @@ class TaskOrchestrator:
         logger.info("TaskOrchestrator initialized.")
 
     async def execute_step(self, session_id: str, session_state: SessionState, step: ActionStep) -> Tuple[ActionStatus, Optional[Dict[str, Any]]]:
-        """
-        Executes a single ActionStep using the Browser Control Layer (BCL).
-
-        Args:
-            session_id: The ID of the current session.
-            session_state: The current state of the session (needed for context like variables).
-            step: The ActionStep to execute.
-
-        Returns:
-            A tuple containing:
-            (action_status: ActionStatus, result_data: Optional[Dict[str, Any]])
-            result_data might contain extracted text, error details, or user prompts.
-        """
-        # Use getattr for safe access to the optional attribute
+        """Executes a single action step and provides detailed logging."""
         reason = getattr(step, 'human_readable_reasoning', None) or 'N/A'
-        logger.info(f"Session {session_id}: Executing Step {step.step_id}: {step.action_type} - Reason: {reason}")
+        logger.info(f"""
+==================================================
+Executing Step {step.step_id + 1}/{len(session_state.plan.steps)}
+Action: {step.action_type}
+Purpose: {reason}
+==================================================
+""")
 
         action_method_name = f"execute_{step.action_type}"
         if not hasattr(self.bcl, action_method_name):
-            logger.error(f"Session {session_id}: BrowserControlLayer does not support action '{step.action_type}' (method '{action_method_name}' missing).")
-            return ACTION_STATUS_ERROR, {"error": f"Unsupported action type: {step.action_type}"}
-
-        action_method = getattr(self.bcl, action_method_name)
+            error_msg = f"Unsupported action type: {step.action_type}"
+            logger.error(f"Session {session_id}: {error_msg}")
+            return ACTION_STATUS_ERROR, {"error": error_msg}
 
         try:
-            # Pass the full step object, session variables, and session config to the BCL method
-            action_status, result_data = await action_method(
+            # Pass the full step object and context to BCL
+            action_status, result_data = await getattr(self.bcl, action_method_name)(
                 session_id=session_id,
                 step=step,
                 session_variables=session_state.session_variables,
                 session_config=session_state.session_config,
             )
-            logger.debug(f"Session {session_id}: Step {step.step_id} completed with status {action_status}.")
+
+            # Log the result based on status
+            if action_status == ACTION_STATUS_CONTINUE:
+                logger.info(f"✓ Step completed successfully")
+                if "extracted_text" in result_data:
+                    logger.info(f"  └─ Extracted: {result_data['extracted_text']}")
+            elif action_status == ACTION_STATUS_ASK_USER:
+                logger.info(f"? Waiting for user input: {result_data.get('ask_user_prompt')}")
+            elif action_status == ACTION_STATUS_DONE:
+                logger.info(f"✓ Task completed: {result_data.get('final_result')}")
+            elif action_status == ACTION_STATUS_ERROR:
+                logger.error(f"✗ Step failed: {result_data.get('error')}")
+
             return action_status, result_data or {}
+
         except Exception as e:
-            logger.error(f"Session {session_id}: Unhandled exception during BCL action execution for step {step.step_id} ({step.action_type}): {e}", exc_info=True)
-            return ACTION_STATUS_ERROR, {"error": f"BCL execution failed: {type(e).__name__} - {e}"}
+            error_msg = f"Failed to execute {step.action_type}: {str(e)}"
+            logger.error(f"Session {session_id}: {error_msg}", exc_info=True)
+            return ACTION_STATUS_ERROR, {"error": error_msg}
 
     async def run_session(self, session_id: str, user_response: Optional[str] = None) -> SessionState:
-        logger.info(f"Starting execution for session {session_id}.")
+        """Executes a session with detailed progress logging."""
+        logger.info(f"""
+==================================================
+Starting Session: {session_id}
+==================================================
+""")
         session_state = await self.session_manager.get_session(session_id)
         if not session_state:
             raise OrchestrationError(f"Session {session_id} not found.")
@@ -80,38 +91,55 @@ class TaskOrchestrator:
             return session_state
 
         if session_state.status == SESSION_STATUS_PAUSED_ASK_USER and user_response:
+            logger.info(f"Session {session_id}: Resuming with user response")
             session_state.session_variables["last_user_response"] = user_response
             session_state = await self.session_manager.update_session(session_id, {"status": SESSION_STATUS_RUNNING})
 
         steps = session_state.plan.steps
+        total_steps = len(steps)
         step_count = 0
+        
+        logger.info(f"Session {session_id}: Starting execution of {total_steps} steps")
 
         while session_state.current_step_index < len(steps) and step_count < MAX_PLAN_STEPS:
             step = steps[session_state.current_step_index]
+            logger.info(f"Session {session_id}: Executing step {step.step_id + 1}/{total_steps} - {step.action_type}")
+            if step.human_readable_reasoning:
+                logger.info(f"Session {session_id}: Step purpose: {step.human_readable_reasoning}")
+                
             action_status, result_data = await self.execute_step(session_id, session_state, step)
 
             updates: Dict[str, Any] = {}
             should_break = False
 
             if action_status == ACTION_STATUS_CONTINUE:
+                logger.debug(f"Session {session_id}: Step completed successfully")
                 updates["current_step_index"] = session_state.current_step_index + 1
                 if step.extraction_variable and "extracted_text" in result_data:
-                    session_state.session_variables[step.extraction_variable] = result_data["extracted_text"]
+                    extracted = result_data["extracted_text"]
+                    logger.info(f"Session {session_id}: Extracted '{extracted}' into variable '{step.extraction_variable}'")
+                    session_state.session_variables[step.extraction_variable] = extracted
                     updates["session_variables"] = session_state.session_variables
 
             elif action_status == ACTION_STATUS_ASK_USER:
+                prompt = result_data.get("ask_user_prompt", "Agent needs input.")
+                logger.info(f"Session {session_id}: Pausing for user input: {prompt}")
                 updates["status"] = SESSION_STATUS_PAUSED_ASK_USER
-                updates["ask_user_prompt"] = result_data.get("ask_user_prompt", "Agent needs input.")
+                updates["ask_user_prompt"] = prompt
                 should_break = True
 
             elif action_status == ACTION_STATUS_DONE:
+                result = result_data.get("final_result", "Task completed successfully.")
+                logger.info(f"Session {session_id}: Task completed - {result}")
                 updates["status"] = SESSION_STATUS_COMPLETED
-                updates["final_result"] = result_data.get("final_result", "Task completed successfully.")
+                updates["final_result"] = result
                 should_break = True
 
             elif action_status == ACTION_STATUS_ERROR:
+                error = result_data.get("error", "Unknown error.")
+                logger.error(f"Session {session_id}: Step failed - {error}")
                 updates["status"] = SESSION_STATUS_FAILED
-                updates["last_error"] = result_data.get("error", "Unknown error.")
+                updates["last_error"] = error
                 should_break = True
 
             if updates:
@@ -123,9 +151,17 @@ class TaskOrchestrator:
             step_count += 1
 
         if step_count >= MAX_PLAN_STEPS:
+            logger.error(f"Session {session_id}: Exceeded maximum number of steps ({MAX_PLAN_STEPS})")
             await self.session_manager.update_session(session_id, {"status": SESSION_STATUS_FAILED, "last_error": "Exceeded maximum steps."})
 
         final_state = await self.session_manager.get_session(session_id)
         if not final_state:
             raise OrchestrationError(f"Session {session_id} lost after execution.")
+            
+        logger.info(f"Session {session_id}: Final status: {final_state.status}")
+        if final_state.status == SESSION_STATUS_COMPLETED:
+            logger.info(f"Session {session_id}: Final result: {final_state.final_result}")
+        elif final_state.status == SESSION_STATUS_FAILED:
+            logger.error(f"Session {session_id}: Final error: {final_state.last_error}")
+            
         return final_state

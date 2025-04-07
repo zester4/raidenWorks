@@ -38,7 +38,7 @@ RUN chown -R raiden:raiden /app
 
 # Copy installed dependencies and playwright browsers from builder stage
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /root/.cache/ms-playwright /home/raiden/.cache/ms-playwright # Copy the playwright browsers installed in the builder stage
+COPY --from=builder /root/.cache/ms-playwright /home/raiden/.cache/ms-playwright 
 RUN chown -R raiden:raiden /home/raiden/.cache/ms-playwright
 
 # Copy application code
